@@ -61,7 +61,6 @@ namespace ClassInTheMiddle
             {
                 Console.WriteLine("get");
             });
-            Invokes.SetRealObject(new test1());
             sut.Set(15);
             var id = sut.Get();
 

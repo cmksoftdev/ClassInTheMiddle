@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ClassInTheMiddle.Library.Services;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -10,11 +11,11 @@ using System.Text;
 
 namespace ClassInTheMiddle.Library
 {
-    public class CodeCreator
+    public class TypeBuilderFactory
     {
-        public static TypeBuilder GetTypeBuilder()
+        public static TypeBuilder GetTypeBuilder(string typeName = "UnnamedType", Type baseType = null)
         {
-            var typeSignature = "MyDynamicType";
+            var typeSignature = typeName;
             var an = new AssemblyName(typeSignature);
             AssemblyBuilder assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(an, AssemblyBuilderAccess.Run);
             ModuleBuilder moduleBuilder = assemblyBuilder.DefineDynamicModule("MainModule");
@@ -25,7 +26,7 @@ namespace ClassInTheMiddle.Library
                     TypeAttributes.AnsiClass |
                     TypeAttributes.BeforeFieldInit |
                     TypeAttributes.AutoLayout,
-                    null);
+                    baseType);
             return tb;
         }
     }
@@ -37,75 +38,19 @@ namespace ClassInTheMiddle.Library
         public static MethodInfo Of(Expression<Action> f) => ((MethodCallExpression)f.Body).Method;
     }
 
-    public class Proxy
-    {
-        public Action action { get; set; }
-
-        public void Call()
-        {
-            action();
-        }
-
-        public void Dummy()
-        {
-
-        }
-    }
-
     public static class Invokes
     {
         public static Dictionary<string, Action> Actions = new Dictionary<string, Action>();
-        static object realObject;
-        static Type Type;
-
-        public static void SetRealObject<T>(T obj)
-        {
-            realObject = obj;
-            Type = typeof(T);
-        }
-
-        public static void SetRealObject(Type t, object obj)
-        {
-            realObject = obj;
-            Type = t;
-        }
 
         public static void Invoke(string name)
         {
-            if(Actions.ContainsKey(name))
+            if (Actions.ContainsKey(name))
                 Actions[name].Invoke();
-        }
-    }
-
-    public interface IInstanceKeeper
-    {
-    }
-
-    public class InstanceKeeper<T> : IInstanceKeeper
-    {
-        public Type GenericType;
-        public Func<T> Func { get; set; }
-
-        public InstanceKeeper(Func<T> func)
-        {
-            GenericType = typeof(T);
-            Func = func;
         }
     }
 
     public class ClassAnalyser<T>
     {
-        public Proxy proxy;
-
-        Dictionary<Type, object> allowedTypes = new Dictionary<Type, object>
-        {
-            {typeof(string), ""},
-            {typeof(int), 1},
-            {typeof(double), 1d},
-            {typeof(decimal), 1m}
-        };
-
-        T t;
         Type type;
 
         Dictionary<ConstructorInfo, List<ParameterInfo>> parametersPerConstructor = new Dictionary<ConstructorInfo, List<ParameterInfo>>();
@@ -117,7 +62,6 @@ namespace ClassInTheMiddle.Library
             analyseDependencies();
             analyseMethods();
             SUT = createSut(parametersPerConstructor.First().Key, instanceKeepers);
-
         }
 
         public T SUT;
@@ -146,67 +90,60 @@ namespace ClassInTheMiddle.Library
             }
         }
 
-        IEnumerable<OpCode> getOpcodesForParameters(int parameterCount)
+        void createProxyMethod(TypeBuilder typeBuilder, MethodInfo method, object instance, FieldBuilder fieldBuilder)
         {
-            var list = new List<OpCode>();
-            switch (parameterCount)
+            var methodparameters = method.GetParameters();
+            var p = methodparameters?.Select(x => x.ParameterType).ToList();
+            p.Insert(0, this.GetType());
+            var methodBuilder = typeBuilder.DefineMethod(
+                method.Name,
+                (MethodAttributes)(method.Attributes - MethodAttributes.Abstract),
+                method.ReturnType,
+                methodparameters?.Select(x => x.ParameterType).ToArray());
+
+            foreach (var methodparameter in methodparameters)
             {
-                case 0:
-                    break;
-                case 1:
-                    list.Add(OpCodes.Ldarg_0);
-                    break;
-                case 2:
-                    list.Add(OpCodes.Ldarg_0);
-                    list.Add(OpCodes.Ldarg_1);
-                    break;
-                case 3:
-                    list.Add(OpCodes.Ldarg_0);
-                    list.Add(OpCodes.Ldarg_1);
-                    list.Add(OpCodes.Ldarg_2);
-                    break;
-                default:
-                    list.Add(OpCodes.Ldarg_0);
-                    list.Add(OpCodes.Ldarg_1);
-                    list.Add(OpCodes.Ldarg_2);
-                    list.Add(OpCodes.Ldarg_3);
-                    //for (int i = 4; i < parameterCount; i++)
-                    //{
-                    //    list.Add(OpCodes.Ldarg, methodInfo.GetParameters()[i].ParameterType);
-                    //}
-                    break;
-            }
-            return list;
-        }
-
-        void createOpcodeForParameters(ILGenerator il, int parameterCount, bool This = true)
-        {
-            var opCodes = getOpcodesForParameters(parameterCount + 1);
-            if (!This)
-                opCodes = opCodes.Skip(1);
-            foreach (var opCode in opCodes)
-                il.Emit(opCode);
-        }
-
-        void createOpcode(ILGenerator il, MethodInfo methodInfo, MethodInfo realMethodInfo = null, FieldInfo fieldInfo = null)
-        {
-            var name = methodInfo.Name;
-            var parameterCount = methodInfo.GetParameters().Length;
-
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Ldstr, name);
-            il.Emit(OpCodes.Call, typeof(Invokes).GetMethod("Invoke"));
-            il.Emit(OpCodes.Pop);
-
-            if(realMethodInfo != null && fieldInfo != null)
-            {
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldfld, fieldInfo);
-                createOpcodeForParameters(il, parameterCount, false);
-                il.Emit(OpCodes.Call, realMethodInfo);
+                var parameterBuilder = methodBuilder.DefineParameter(methodparameter.Position + 1, methodparameter.Attributes, methodparameter.Name);
             }
 
-            il.Emit(OpCodes.Ret);
+            OpcodeGenerator opcodeGenerator = new OpcodeGenerator(methodBuilder.GetILGenerator());
+            if (instance == null)
+                opcodeGenerator.CreateOpcode(method);
+            else
+                opcodeGenerator.CreateOpcode(method, instance.GetType().GetMethod(method.Name), fieldBuilder);
+            //typeBuilder.DefineM
+            typeBuilder.DefineMethodOverride(methodBuilder, method);// parameter.ParameterType.GetMethod(method.Name));
+        }
+
+        object createFieldForRealInstance(TypeBuilder typeBuilder, Dictionary<Type, Func<object>> instanceKeepers, Type parameterType, out FieldBuilder fieldBuilder)
+        {
+            object instance = null;
+            fieldBuilder = null;
+            if (instanceKeepers.ContainsKey(parameterType))
+            {
+                instance = instanceKeepers[parameterType]();
+                fieldBuilder = typeBuilder.DefineField("realInstance", instance.GetType(), FieldAttributes.Private);
+            }
+            return instance;
+        }
+
+        public object createMock(TypeBuilder typeBuilder, object instance, FieldBuilder fieldBuilder, Type parameterType)
+        {
+            var methods = parameterType.GetMethods();
+            foreach (var method in methods)
+            {
+                createProxyMethod(typeBuilder, method, instance, fieldBuilder);
+            }
+            return Activator.CreateInstance(typeBuilder.CreateType());
+        }
+
+        public void setInstanceToFiled(object instance, object mock)
+        {
+            if (instance == null)
+                return;
+            var mockType = mock.GetType();
+            var field = mockType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic);
+            field[0].SetValue(mock, instance);
         }
 
         public T createSut(ConstructorInfo constructorInfo, Dictionary<Type, Func<object>> instanceKeepers)
@@ -216,56 +153,29 @@ namespace ClassInTheMiddle.Library
 
             foreach (var parameter in parameterlist)
             {
+                bool isInterface = false;
+                TypeBuilder typeBuilder;
                 if (parameter.ParameterType.IsInterface)
                 {
-                    var typeBuilder = CodeCreator.GetTypeBuilder();
+                    isInterface = true;
+                    typeBuilder = TypeBuilderFactory.GetTypeBuilder(type.Name + "_Proxy");
                     typeBuilder.AddInterfaceImplementation(parameter.ParameterType);
-
-                    object instance = null;
-                    FieldBuilder fieldBuilder = null;
-                    if(instanceKeepers.ContainsKey(parameter.ParameterType))
-                    {
-                        instance = instanceKeepers[parameter.ParameterType]();
-                        fieldBuilder = typeBuilder.DefineField("realInstance", instance.GetType(), FieldAttributes.Private);
-                    }
-
-                    var methods = parameter.ParameterType.GetMethods();
-                    foreach (var method in methods)
-                    {
-                        var methodparameters = method.GetParameters();
-                        var p = methodparameters?.Select(x => x.ParameterType).ToList();
-                        p.Insert(0, this.GetType());
-                        var methodBuilder = typeBuilder.DefineMethod(
-                            method.Name,
-                            (MethodAttributes)(method.Attributes - MethodAttributes.Abstract),
-                            method.ReturnType,
-                            methodparameters?.Select(x => x.ParameterType).ToArray());
-
-                        foreach (var methodparameter in methodparameters)
-                        {
-                            var parameterBuilder = methodBuilder.DefineParameter(methodparameter.Position + 1, methodparameter.Attributes, methodparameter.Name);
-                        }
-
-                        ILGenerator il = methodBuilder.GetILGenerator();
-                        if(instance == null)
-                            this.createOpcode(il, method);
-                        else
-                            this.createOpcode(il, method, instance.GetType().GetMethod(method.Name), fieldBuilder);
-                        typeBuilder.DefineMethodOverride(methodBuilder, parameter.ParameterType.GetMethod(method.Name));
-                    }
-                    var mock = Activator.CreateInstance(typeBuilder.CreateType());
-                    if (instance != null)
-                    {
-                        var mockType = mock.GetType();
-                        var field = mockType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic);
-                        field[0].SetValue(mock, instance);
-                    }
-                    parameters.Add(mock);
                 }
-                else if (allowedTypes.Keys.Any(x => x == parameter.ParameterType))
+                else if (parameter.ParameterType.IsClass)
                 {
-
+                    typeBuilder = TypeBuilderFactory.GetTypeBuilder(type.Name + "_Proxy", parameter.ParameterType);
                 }
+                else //if (allowedTypes.Keys.Any(x => x == parameter.ParameterType))
+                {
+                    continue;
+                }
+
+
+                object instance = createFieldForRealInstance(typeBuilder, instanceKeepers, parameter.ParameterType, out FieldBuilder fieldBuilder);
+
+                var mock = createMock(typeBuilder, instance, fieldBuilder, parameter.ParameterType);
+                setInstanceToFiled(instance, mock);
+                parameters.Add(mock);
             }
 
             return (T)Activator.CreateInstance(type, args: parameters.ToArray());
