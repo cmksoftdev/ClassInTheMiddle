@@ -111,63 +111,35 @@ namespace ClassInTheMiddle.Library.Services
         {
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldind_I4, 1);
-            //il.Emit(OpCodes.Ldnull);
             il.Emit(OpCodes.Ret);
         }
 
         public void createSetMethodOpcode(MethodInfo methodInfo)
         {
-            //il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ret);
         }
 
         public void CreateOpcode(MethodInfo methodInfo, bool isInterface, MethodInfo realMethodInfo = null, FieldInfo fieldInfo = null)
         {
-            var name = methodInfo.Name;
             var parameterCount = methodInfo.GetParameters().Length;
-            LocalBuilder result = null;
-            bool isReturning = methodInfo.ReturnType != typeof(void);
-            if (isReturning)
-                result = il.DeclareLocal(methodInfo.ReturnType);
-
             il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Ldstr, name);
+            il.Emit(OpCodes.Ldstr, Invokes.GetMethodName(methodInfo));
             if (parameterCount > 0)
             {
-                LocalBuilder paramValues = il.DeclareLocal(typeof(object[]));
                 createArrayWithParameters(methodInfo.GetParameters());
-                il.Emit(OpCodes.Call, typeof(Invokes).GetMethod("InvokeWithParameters"));
+                il.Emit(OpCodes.Call, typeof(Invokes).GetMethod("InvokeVoidWithParameters"));
             }
             else
             {
-                il.Emit(OpCodes.Call, typeof(Invokes).GetMethod("Invoke"));
+                il.Emit(OpCodes.Call, typeof(Invokes).GetMethod("InvokeVoid"));
             }
             il.Emit(OpCodes.Pop);
-
             if (realMethodInfo != null && fieldInfo != null)
             {
                 il.Emit(OpCodes.Ldarg_0);
-                //if (isInterface)
-                {
-                    il.Emit(OpCodes.Ldfld, fieldInfo);
-                    //il.Emit(OpCodes.Box, methodInfo.);
-                }
+                il.Emit(OpCodes.Ldfld, fieldInfo);
                 createOpcodeForParameters(methodInfo.GetParameters(), false, false);
                 il.Emit(OpCodes.Callvirt, realMethodInfo);
-                //il.Emit(OpCodes.Pop);
-                //if (isReturning)
-                //{
-                //    if(methodInfo.ReturnType.IsValueType)
-                //        il.Emit(OpCodes.Box, methodInfo.ReturnType);
-                //    il.Emit(OpCodes.Stloc, result);
-                //}
-            }
-
-            if (isReturning)
-            {
-                //il.Emit(OpCodes.Ldloca_S, 0);
-                //il.Emit(OpCodes.Ldloc, result);
-                //il.Emit(OpCodes.Unbox, methodInfo.ReturnType);
             }
             il.Emit(OpCodes.Ret);
         }

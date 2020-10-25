@@ -1,4 +1,5 @@
 ﻿using ClassInTheMiddle.Library;
+using ClassInTheMiddle.Library.Services;
 using System;
 using System.Collections.Generic;
 
@@ -70,14 +71,15 @@ namespace ClassInTheMiddle
                 {typeof(test1), () => new test1() }
             });
             var sut = classAnalyser.SUT;
-            Invokes.Functions.Add("Set", x =>
+            Invokes.SetFunction<test1>(x => x.Set(0), x =>
             {
                 Console.WriteLine("set");
                 return null;
             });
-            Invokes.Functions.Add("Get", x =>
+            Invokes.SetFunction<test1>(x => x.Get2(), x =>
             {
                 Console.WriteLine("get");
+                return null;
             });
             sut.Set(15);
             var id = sut.Get2();
