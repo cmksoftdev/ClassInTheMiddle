@@ -38,6 +38,7 @@ namespace ClassInTheMiddle.Library
         }
 
         public T SUT;
+        public Invokes Invokes { get; } = new Invokes();
 
         void analyseDependencies()
         {
@@ -63,7 +64,7 @@ namespace ClassInTheMiddle.Library
             }
         }
 
-        void createProxyMethod(TypeBuilder typeBuilder, MethodInfo method, object instance, FieldBuilder fieldBuilder, bool isInterface)
+        void createProxyMethod(TypeBuilder typeBuilder, MethodInfo method, object instance, FieldBuilder fieldBuilder, FieldBuilder invokesFieldBuilder, bool isInterface)
         {
             var methodparameters = method.GetParameters();
             var p = methodparameters?.Select(x => x.ParameterType).ToList();
@@ -102,10 +103,11 @@ namespace ClassInTheMiddle.Library
             opcodeGenerator = new OpcodeGenerator(methodBuilder.GetILGenerator());
 
             if (instance == null)
-                opcodeGenerator.CreateOpcode(method, isInterface);
+                opcodeGenerator.CreateOpcode(invokesFieldBuilder, method, isInterface);
             else
             {
                 opcodeGenerator.CreateOpcode(
+                    invokesFieldBuilder,
                     method, 
                     isInterface,
                     !isInterface && instance != null ? realMethod : instance.GetType().GetMethod(method.Name), 
@@ -127,7 +129,12 @@ namespace ClassInTheMiddle.Library
             return instance;
         }
 
-        public object createMock(TypeBuilder typeBuilder, object instance, FieldBuilder fieldBuilder, Type parameterType, bool isInterface = false)
+        FieldBuilder createFieldForProxyInvoker(TypeBuilder typeBuilder)
+        {
+            return typeBuilder.DefineField("invokes", Invokes.GetType(), FieldAttributes.Private);
+        }
+
+        public object createMock(TypeBuilder typeBuilder, object instance, FieldBuilder fieldBuilder, FieldBuilder invokesFieldBuilder, Type parameterType, bool isInterface = false)
         {
             var methods = parameterType.GetMethods();
             var methodsToIgnore = typeof(object).GetMethods();
@@ -135,7 +142,7 @@ namespace ClassInTheMiddle.Library
             {
                 if (methodsToIgnore.Any(x => x.Name == method.Name))
                     continue;
-                createProxyMethod(typeBuilder, method, instance, fieldBuilder, isInterface);
+                createProxyMethod(typeBuilder, method, instance, fieldBuilder, invokesFieldBuilder, isInterface);
             }
             var mock = Activator.CreateInstance(typeBuilder.CreateType());
             methods = parameterType.GetMethods();
@@ -153,12 +160,12 @@ namespace ClassInTheMiddle.Library
             return mock;
         }
 
-        public void setInstanceToFiled(object instance, object mock)
+        public void setInstanceToFiled(string name, object instance, object mock)
         {
             if (instance == null)
                 return;
             var mockType = mock.GetType();
-            var field = mockType.GetField("realInstance", BindingFlags.Instance | BindingFlags.NonPublic);
+            var field = mockType.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
             field.SetValue(mock, instance);
         }
 
@@ -187,10 +194,12 @@ namespace ClassInTheMiddle.Library
                 }
 
                 object instance = createFieldForRealInstance(typeBuilder, instanceKeepers, parameter.ParameterType, out FieldBuilder fieldBuilder);
+                var invokesFieldBuilder = createFieldForProxyInvoker(typeBuilder);
 
-                var mock = createMock(typeBuilder, instance, fieldBuilder, parameter.ParameterType, isInterface);
+                var mock = createMock(typeBuilder, instance, fieldBuilder, invokesFieldBuilder, parameter.ParameterType, isInterface);
                 List.Add(mock);
-                setInstanceToFiled(instance, mock);
+                setInstanceToFiled("realInstance", instance, mock);
+                setInstanceToFiled("invokes", Invokes, mock);
                 parameters.Add(mock);
             }
 

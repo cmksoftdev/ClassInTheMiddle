@@ -16,34 +16,34 @@ namespace ClassInTheMiddle.Library.Services
             this.il = il;
         }
 
-        IEnumerable<OpCode> getOpcodesForParameters(int parameterCount)
+        IEnumerable<Tuple<OpCode, int?>> getOpcodesForParameters(int parameterCount)
         {
-            var list = new List<OpCode>();
+            var list = new List<Tuple<OpCode, int?>>();
             switch (parameterCount)
             {
                 case 0:
                     break;
                 case 1:
-                    list.Add(OpCodes.Ldarg_0);
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_0, null));
                     break;
                 case 2:
-                    list.Add(OpCodes.Ldarg_0);
-                    list.Add(OpCodes.Ldarg_1);
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_0, null));
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_1, null));
                     break;
                 case 3:
-                    list.Add(OpCodes.Ldarg_0);
-                    list.Add(OpCodes.Ldarg_1);
-                    list.Add(OpCodes.Ldarg_2);
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_0, null));
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_1, null));
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_2, null));
                     break;
                 default:
-                    list.Add(OpCodes.Ldarg_0);
-                    list.Add(OpCodes.Ldarg_1);
-                    list.Add(OpCodes.Ldarg_2);
-                    list.Add(OpCodes.Ldarg_3);
-                    //for (int i = 4; i < parameterCount; i++)
-                    //{
-                    //    list.Add(OpCodes.Ldarg, methodInfo.GetParameters()[i].ParameterType);
-                    //}
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_0, null));
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_1, null));
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_2, null));
+                    list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg_3, null));
+                    for (int i = 4; i < parameterCount; i++)
+                    {
+                        list.Add(Tuple.Create<OpCode, int?>(OpCodes.Ldarg, i));
+                    }
                     break;
             }
             return list;
@@ -60,13 +60,21 @@ namespace ClassInTheMiddle.Library.Services
             {
                 il.Emit(OpCodes.Dup);
                 il.Emit(OpCodes.Ldc_I4, i);
-                il.Emit(list[i + 1]);
+                emitArg(list[i + 1]);
                 il.Emit(OpCodes.Box, item.ParameterType);
                 il.Emit(OpCodes.Stelem_Ref);
                 i++;
             }
             il.Emit(OpCodes.Stloc, paramValues);
             il.Emit(OpCodes.Ldloc, paramValues);
+        }
+
+        void emitArg(Tuple<OpCode, int?> arg)
+        {
+            if (arg.Item2 == null)
+                il.Emit(arg.Item1);
+            else
+                il.Emit(arg.Item1, arg.Item2.Value);
         }
 
         void createOpcodeForParameters(ParameterInfo[] parameterInfos, bool box = true, bool This = true)
@@ -78,14 +86,16 @@ namespace ClassInTheMiddle.Library.Services
                 if (parameterInfos.Length <= 0)
                     return;
                 if (This)
-                    il.Emit(opCodes.First());
+                {
+                    emitArg(opCodes.First());
+                }
                 opCodes = opCodes.Skip(1);
                 int i = 0;
                 foreach (var opCode in opCodes)
                 {
                     if (parameterInfos[i].ParameterType.IsValueType)
                         il.Emit(OpCodes.Box, parameterInfos[i].ParameterType);
-                    il.Emit(opCode);
+                    emitArg(opCode);
                     ++i;
                 }
             }
@@ -94,7 +104,7 @@ namespace ClassInTheMiddle.Library.Services
                 if (!This)
                     opCodes = opCodes.Skip(1);
                 foreach (var opCode in opCodes)
-                    il.Emit(opCode);
+                    emitArg(opCode);
             }
         }
 
@@ -104,7 +114,7 @@ namespace ClassInTheMiddle.Library.Services
             if (!This)
                 opCodes = opCodes.Skip(1);
             foreach (var opCode in opCodes)
-                il.Emit(opCode);
+                emitArg(opCode);
         }
 
         public void createGetMethodOpcode(MethodInfo methodInfo)
@@ -119,10 +129,12 @@ namespace ClassInTheMiddle.Library.Services
             il.Emit(OpCodes.Ret);
         }
 
-        public void CreateOpcode(MethodInfo methodInfo, bool isInterface, MethodInfo realMethodInfo = null, FieldInfo fieldInfo = null)
+        public void CreateOpcode(FieldInfo invokesFieldInfo, MethodInfo methodInfo, bool isInterface, MethodInfo realMethodInfo = null, FieldInfo fieldInfo = null)
         {
             var parameterCount = methodInfo.GetParameters().Length;
             il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldfld, invokesFieldInfo);
             il.Emit(OpCodes.Ldstr, Invokes.GetMethodName(methodInfo));
             if (parameterCount > 0)
             {

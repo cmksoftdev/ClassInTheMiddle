@@ -64,25 +64,23 @@ namespace ClassInTheMiddle
     {
         public static void Main(string[] args)
         {
-            //test1 ttt = new test3();
-            //ttt.Set(1);
             var classAnalyser = new ClassAnalyser<test2>(new Dictionary<Type, Func<object>>
             {
                 {typeof(test1), () => new test1() }
             });
             var sut = classAnalyser.SUT;
-            Invokes.SetFunction<test1>(x => x.Set(0), x =>
+            classAnalyser.Invokes.SetFunction<test1>(x => x.Set(0), x =>
             {
                 Console.WriteLine("set");
                 return null;
             });
-            Invokes.SetFunction<test1>(x => x.Get2(), x =>
+            classAnalyser.Invokes.SetFunction<test1>(x => x.Get(), x =>
             {
                 Console.WriteLine("get");
                 return null;
             });
             sut.Set(15);
-            var id = sut.Get2();
+            var id = sut.Get();
 
             Console.WriteLine("Hello World! " + id);
         }

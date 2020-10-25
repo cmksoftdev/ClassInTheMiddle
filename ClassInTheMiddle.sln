@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30503.244
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClassInTheMiddle.Console", "ClassInTheMiddle\ClassInTheMiddle.Console.csproj", "{7126C219-ADCF-4DEA-83AB-8AE9FDCF7184}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClassInTheMiddle.Console", "ClassInTheMiddle\ClassInTheMiddle.Console.csproj", "{7126C219-ADCF-4DEA-83AB-8AE9FDCF7184}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClassInTheMiddle.Library", "ClassInTheMiddle.Library\ClassInTheMiddle.Library.csproj", "{C7BD48F1-193D-472C-97E0-79394C3613BE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClassInTheMiddle.Library", "ClassInTheMiddle.Library\ClassInTheMiddle.Library.csproj", "{C7BD48F1-193D-472C-97E0-79394C3613BE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClassInTheMiddle.Tests", "ClassInTheMiddle.Tests\ClassInTheMiddle.Tests.csproj", "{AAE99C31-01B8-4D04-9F7A-C39E3ABCC58D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{C7BD48F1-193D-472C-97E0-79394C3613BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7BD48F1-193D-472C-97E0-79394C3613BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7BD48F1-193D-472C-97E0-79394C3613BE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AAE99C31-01B8-4D04-9F7A-C39E3ABCC58D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAE99C31-01B8-4D04-9F7A-C39E3ABCC58D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAE99C31-01B8-4D04-9F7A-C39E3ABCC58D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAE99C31-01B8-4D04-9F7A-C39E3ABCC58D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
