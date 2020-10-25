@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace ClassInTheMiddle
 {
-    public class test1 : Itest1
+    public class test1 //: Itest1
     {
         int i;
 
@@ -13,17 +13,34 @@ namespace ClassInTheMiddle
             this.i = i;
         }
 
-        public int Get()
+        public string Get()
+        {
+            return "Hallo";
+        }
+
+        public int Get2()
         {
             return i;
         }
     }
 
+    public class test3 : test1
+    {
+        public new void Set(int i)
+        {
+        }
+
+        public new int Get()
+        {
+            return 123;
+        }
+    }
+
     public class test2
     {
-        Itest1 test;
+        test1 test;
 
-        public test2(Itest1 test)
+        public test2(test1 test)
         {
             this.test = test;
         }
@@ -32,25 +49,25 @@ namespace ClassInTheMiddle
             test.Set(i);
         }
 
-        public int Get()
+        public string Get()
         {
             return test.Get();
+        }
+        public int Get2()
+        {
+            return test.Get2();
         }
     }
 
     public class Program
     {
-        static void testtt(object o)
-        {
-            var i = Convert.ToInt32(o);
-        }
-
         public static void Main(string[] args)
         {
-            testtt(15);
+            //test1 ttt = new test3();
+            //ttt.Set(1);
             var classAnalyser = new ClassAnalyser<test2>(new Dictionary<Type, Func<object>>
             {
-                {typeof(Itest1), () => new test1() }
+                {typeof(test1), () => new test1() }
             });
             var sut = classAnalyser.SUT;
             Invokes.Actions.Add("Set", () =>
@@ -62,7 +79,7 @@ namespace ClassInTheMiddle
                 Console.WriteLine("get");
             });
             sut.Set(15);
-            var id = sut.Get();
+            var id = sut.Get2();
 
             Console.WriteLine("Hello World!");
         }

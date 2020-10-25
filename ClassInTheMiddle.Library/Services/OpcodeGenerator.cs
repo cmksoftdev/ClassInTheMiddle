@@ -58,10 +58,27 @@ namespace ClassInTheMiddle.Library.Services
                 il.Emit(opCode);
         }
 
-        public void CreateOpcode(MethodInfo methodInfo, MethodInfo realMethodInfo = null, FieldInfo fieldInfo = null)
+        public void createGetMethodOpcode(MethodInfo methodInfo)
+        {
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldind_I4, 1);
+            il.Emit(OpCodes.Ret);
+        }
+
+        public void createSetMethodOpcode(MethodInfo methodInfo)
+        {
+            //il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ret);
+        }
+
+        public void CreateOpcode(MethodInfo methodInfo, bool isInterface, MethodInfo realMethodInfo = null, FieldInfo fieldInfo = null)
         {
             var name = methodInfo.Name;
             var parameterCount = methodInfo.GetParameters().Length;
+            LocalBuilder result = null;
+            bool isReturning = methodInfo.ReturnType != typeof(void);
+            if (isReturning)
+                result = il.DeclareLocal(methodInfo.ReturnType);
 
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldstr, name);
@@ -71,11 +88,19 @@ namespace ClassInTheMiddle.Library.Services
             if (realMethodInfo != null && fieldInfo != null)
             {
                 il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldfld, fieldInfo);
+                if(isInterface)
+                    il.Emit(OpCodes.Ldfld, fieldInfo);
                 createOpcodeForParameters(parameterCount, false);
                 il.Emit(OpCodes.Call, realMethodInfo);
+                //if(isReturning)
+                    //il.Emit(OpCodes.Stloc, result);
             }
 
+            if (isReturning)
+            {
+                //il.Emit(OpCodes.Ldloc, result);
+                il.Emit(OpCodes.Unbox);
+            }
             il.Emit(OpCodes.Ret);
         }
     }
