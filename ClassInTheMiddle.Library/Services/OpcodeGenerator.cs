@@ -49,7 +49,56 @@ namespace ClassInTheMiddle.Library.Services
             return list;
         }
 
-        void createOpcodeForParameters(int parameterCount, bool This = true)
+        void createArrayWithParameters(ParameterInfo[] parameterInfos)
+        {
+            LocalBuilder paramValues = il.DeclareLocal(typeof(object[]));
+            il.Emit(OpCodes.Ldc_I4_S, parameterInfos.Length);
+            il.Emit(OpCodes.Newarr, typeof(object));
+            var list = getOpcodesForParameters(parameterInfos.Length + 1).ToArray();
+            int i = 0;
+            foreach (var item in parameterInfos)
+            {
+                il.Emit(OpCodes.Dup);
+                il.Emit(OpCodes.Ldc_I4, i);
+                il.Emit(list[i + 1]);
+                il.Emit(OpCodes.Box, item.ParameterType);
+                il.Emit(OpCodes.Stelem_Ref);
+                i++;
+            }
+            il.Emit(OpCodes.Stloc, paramValues);
+            il.Emit(OpCodes.Ldloc, paramValues);
+        }
+
+        void createOpcodeForParameters(ParameterInfo[] parameterInfos, bool box = true, bool This = true)
+        {
+            var opCodes = getOpcodesForParameters(parameterInfos.Length + 1);
+
+            if (box)
+            {
+                if (parameterInfos.Length <= 0)
+                    return;
+                if (This)
+                    il.Emit(opCodes.First());
+                opCodes = opCodes.Skip(1);
+                int i = 0;
+                foreach (var opCode in opCodes)
+                {
+                    if (parameterInfos[i].ParameterType.IsValueType)
+                        il.Emit(OpCodes.Box, parameterInfos[i].ParameterType);
+                    il.Emit(opCode);
+                    ++i;
+                }
+            }
+            else
+            {
+                if (!This)
+                    opCodes = opCodes.Skip(1);
+                foreach (var opCode in opCodes)
+                    il.Emit(opCode);
+            }
+        }
+
+        void createOpcodeForParameters(int parameterCount, bool box = true, bool This = true)
         {
             var opCodes = getOpcodesForParameters(parameterCount + 1);
             if (!This)
@@ -62,6 +111,7 @@ namespace ClassInTheMiddle.Library.Services
         {
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldind_I4, 1);
+            //il.Emit(OpCodes.Ldnull);
             il.Emit(OpCodes.Ret);
         }
 
@@ -82,24 +132,42 @@ namespace ClassInTheMiddle.Library.Services
 
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldstr, name);
-            il.Emit(OpCodes.Call, typeof(Invokes).GetMethod("Invoke"));
+            if (parameterCount > 0)
+            {
+                LocalBuilder paramValues = il.DeclareLocal(typeof(object[]));
+                createArrayWithParameters(methodInfo.GetParameters());
+                il.Emit(OpCodes.Call, typeof(Invokes).GetMethod("InvokeWithParameters"));
+            }
+            else
+            {
+                il.Emit(OpCodes.Call, typeof(Invokes).GetMethod("Invoke"));
+            }
             il.Emit(OpCodes.Pop);
 
             if (realMethodInfo != null && fieldInfo != null)
             {
                 il.Emit(OpCodes.Ldarg_0);
-                if(isInterface)
+                //if (isInterface)
+                {
                     il.Emit(OpCodes.Ldfld, fieldInfo);
-                createOpcodeForParameters(parameterCount, false);
-                il.Emit(OpCodes.Call, realMethodInfo);
-                //if(isReturning)
-                    //il.Emit(OpCodes.Stloc, result);
+                    //il.Emit(OpCodes.Box, methodInfo.);
+                }
+                createOpcodeForParameters(methodInfo.GetParameters(), false, false);
+                il.Emit(OpCodes.Callvirt, realMethodInfo);
+                //il.Emit(OpCodes.Pop);
+                //if (isReturning)
+                //{
+                //    if(methodInfo.ReturnType.IsValueType)
+                //        il.Emit(OpCodes.Box, methodInfo.ReturnType);
+                //    il.Emit(OpCodes.Stloc, result);
+                //}
             }
 
             if (isReturning)
             {
+                //il.Emit(OpCodes.Ldloca_S, 0);
                 //il.Emit(OpCodes.Ldloc, result);
-                il.Emit(OpCodes.Unbox);
+                //il.Emit(OpCodes.Unbox, methodInfo.ReturnType);
             }
             il.Emit(OpCodes.Ret);
         }

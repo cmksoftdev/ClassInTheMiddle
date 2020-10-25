@@ -11,24 +11,6 @@ using System.Text;
 
 namespace ClassInTheMiddle.Library
 {
-    public class TypeBuilderFactory
-    {
-        public static TypeBuilder GetTypeBuilder(string typeSignature = "UnnamedType", Type baseType = null)
-        {
-            var an = new AssemblyName(typeSignature);
-            AssemblyBuilder assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(an, AssemblyBuilderAccess.Run);
-            ModuleBuilder moduleBuilder = assemblyBuilder.DefineDynamicModule("MainModule");
-            TypeBuilder tb = moduleBuilder.DefineType(typeSignature,
-                    TypeAttributes.Public |
-                    TypeAttributes.Class |
-                    TypeAttributes.AutoClass |
-                    TypeAttributes.AnsiClass |
-                    TypeAttributes.BeforeFieldInit |
-                    TypeAttributes.AutoLayout,
-                    baseType);
-            return tb;
-        }
-    }
 
     static class Method
     {
@@ -37,83 +19,6 @@ namespace ClassInTheMiddle.Library
         public static MethodInfo Of(Expression<Action> f) => ((MethodCallExpression)f.Body).Method;
     }
 
-    public static class Invokes
-    {
-        public static Dictionary<string, Action> Actions = new Dictionary<string, Action>();
-
-        public static void Invoke(string name)
-        {
-            if (Actions.ContainsKey(name))
-                Actions[name].Invoke();
-        }
-    }
-
-    class CodeInjetion
-    {
-        public static void InjectMethod(MethodInfo methodToReplace, MethodInfo methodToInject)
-        {
-            //            MethodInfo methodToReplace = typeof(Target).GetMethod("targetMethod" + funcNum, BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-            //           MethodInfo methodToInject = typeof(Injection).GetMethod("injectionMethod" + funcNum, BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-
-
-            RuntimeHelpers.PrepareMethod(methodToReplace.MethodHandle);
-            RuntimeHelpers.PrepareMethod(methodToInject.MethodHandle);
-
-            //try
-            //{
-            //    RuntimeHelpers.PrepareMethod(methodToReplace.MethodHandle);
-            //}
-            //catch {}
-            //try
-            //{
-            //    RuntimeHelpers.PrepareMethod(methodToInject.MethodHandle);
-            //}
-            //catch {}
-
-            unsafe
-            {
-                if (IntPtr.Size == 4)
-                {
-                    int* inj = (int*)methodToInject.MethodHandle.Value.ToPointer() + 2;
-                    int* tar = (int*)methodToReplace.MethodHandle.Value.ToPointer() + 2;
-#if DEBUG
-                    Console.WriteLine("\nVersion x86 Debug\n");
-
-                    byte* injInst = (byte*)*inj;
-                    byte* tarInst = (byte*)*tar;
-
-                    int* injSrc = (int*)(injInst + 1);
-                    int* tarSrc = (int*)(tarInst + 1);
-
-                    *tarSrc = (((int)injInst + 5) + *injSrc) - ((int)tarInst + 5);
-#else
-                    Console.WriteLine("\nVersion x86 Release\n");
-                    *tar = *inj;
-#endif
-                }
-                else
-                {
-
-                    long* inj = (long*)methodToInject.MethodHandle.Value.ToPointer() + 1;
-                    long* tar = (long*)methodToReplace.MethodHandle.Value.ToPointer() + 1;
-#if DEBUG
-                    Console.WriteLine("\nVersion x64 Debug\n");
-                    byte* injInst = (byte*)*inj;
-                    byte* tarInst = (byte*)*tar;
-
-
-                    int* injSrc = (int*)(injInst + 1);
-                    int* tarSrc = (int*)(tarInst + 1);
-
-                    *tarSrc = (((int)injInst + 5) + *injSrc) - ((int)tarInst + 5);
-#else
-                    Console.WriteLine("\nVersion x64 Release\n");
-                    *tar = *inj;
-#endif
-                }
-            }
-        }
-    }
 
     public class ClassAnalyser<T>
     {
@@ -165,7 +70,7 @@ namespace ClassInTheMiddle.Library
             p.Insert(0, this.GetType());
             var methodBuilder = typeBuilder.DefineMethod(
                 method.Name,
-                method.Attributes,//(MethodAttributes)(method.Attributes - MethodAttributes.Abstract) | MethodAttributes.HideBySig,
+                method.Attributes,
                 method.ReturnType,
                 methodparameters?.Select(x => x.ParameterType).ToArray());
             OpcodeGenerator opcodeGenerator;
@@ -174,7 +79,7 @@ namespace ClassInTheMiddle.Library
             {
                 realMethod = typeBuilder.DefineMethod(
                     method.Name + "_real",
-                    method.Attributes | MethodAttributes.Private,//(MethodAttributes)(method.Attributes - MethodAttributes.Abstract) | MethodAttributes.HideBySig,
+                    method.Attributes | MethodAttributes.Private,
                     method.ReturnType,
                     methodparameters?.Select(x => x.ParameterType).ToArray());
 
@@ -206,10 +111,8 @@ namespace ClassInTheMiddle.Library
                     !isInterface && instance != null ? realMethod : instance.GetType().GetMethod(method.Name), 
                     fieldBuilder);
             }
-
-            //typeBuilder.DefineM
             if(isInterface)
-                typeBuilder.DefineMethodOverride(methodBuilder, method);// parameter.ParameterType.GetMethod(method.Name));
+                typeBuilder.DefineMethodOverride(methodBuilder, method);
         }
 
         object createFieldForRealInstance(TypeBuilder typeBuilder, Dictionary<Type, Func<object>> instanceKeepers, Type parameterType, out FieldBuilder fieldBuilder)
@@ -235,7 +138,7 @@ namespace ClassInTheMiddle.Library
                 createProxyMethod(typeBuilder, method, instance, fieldBuilder, isInterface);
             }
             var mock = Activator.CreateInstance(typeBuilder.CreateType());
-            methods = parameterType.GetMethods();// mock.GetType().GetMethods();
+            methods = parameterType.GetMethods();
             if(!isInterface && instance != null)
             {
                 foreach (var method in methods)
@@ -243,17 +146,10 @@ namespace ClassInTheMiddle.Library
                     if (methodsToIgnore.Any(x => x.Name == method.Name))
                         continue;
                     var methodDummy = mock.GetType().GetMethod(method.Name + "_real", BindingFlags.Instance | BindingFlags.NonPublic);
-                    CodeInjetion.InjectMethod(methodDummy, method);
-                    CodeInjetion.InjectMethod(method, mock.GetType().GetMethod(method.Name));
-                    //CodeInjetion.InjectMethod(methodDummy, method);
-                    //CodeInjetion.InjectMethod(method, methodDummy);
+                    MethodChanger.Change(methodDummy, method);
+                    MethodChanger.Change(method, mock.GetType().GetMethod(method.Name));
                 }
             }
-            //CodeInjetion.InjectMethod(methods[0], mock.GetType().GetMethod(methods[0].Name));
-            //foreach (var method in methods)
-            //{
-            //    //CodeInjetion.InjectMethod(method, mock.GetType().GetMethod(method.Name));
-            //}
             return mock;
         }
 
@@ -285,11 +181,10 @@ namespace ClassInTheMiddle.Library
                 {
                     typeBuilder = TypeBuilderFactory.GetTypeBuilder(type.Name + "_Proxy", parameter.ParameterType);
                 }
-                else //if (allowedTypes.Keys.Any(x => x == parameter.ParameterType))
+                else
                 {
                     continue;
                 }
-
 
                 object instance = createFieldForRealInstance(typeBuilder, instanceKeepers, parameter.ParameterType, out FieldBuilder fieldBuilder);
 

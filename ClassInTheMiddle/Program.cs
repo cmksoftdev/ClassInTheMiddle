@@ -70,18 +70,19 @@ namespace ClassInTheMiddle
                 {typeof(test1), () => new test1() }
             });
             var sut = classAnalyser.SUT;
-            Invokes.Actions.Add("Set", () =>
+            Invokes.Functions.Add("Set", x =>
             {
                 Console.WriteLine("set");
+                return null;
             });
-            Invokes.Actions.Add("Get", () =>
+            Invokes.Functions.Add("Get", x =>
             {
                 Console.WriteLine("get");
             });
             sut.Set(15);
             var id = sut.Get2();
 
-            Console.WriteLine("Hello World!");
+            Console.WriteLine("Hello World! " + id);
         }
     }
 }
