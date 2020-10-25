@@ -144,7 +144,7 @@ namespace ClassInTheMiddle.Tests
             // Act
             testDummy2.SetTwoParameters(expected1, expected2);
             var actual1 = testDummy2.Get1();
-            var actual2 = testDummy2.Get1();
+            var actual2 = testDummy2.Get2();
 
             // Assert
             Assert.IsTrue(
