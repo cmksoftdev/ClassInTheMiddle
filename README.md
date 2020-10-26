@@ -9,5 +9,5 @@ C# Class Proxy to makes it possible to mock dependencies, even if they are no in
 
 #### SUT 
 1. =calls=> ProxyClass.Method 
-2. =calls=> ConfigedFunc with parameters
+2. =calls=> configure Func with parameters
 3. =calls=> Dependency.Method (optional)
