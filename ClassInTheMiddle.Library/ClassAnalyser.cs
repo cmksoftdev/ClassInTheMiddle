@@ -24,6 +24,11 @@ namespace ClassInTheMiddle.Library
     {
         Type type;
 
+        const string REAL_INSTANCE_FIELD_NAME = "___realInstance";
+        const string INVOKES_INSTANCE_FIELD = "___invokes";
+        const string REAL_METHOD_ENDING = "___real";
+        const string PROXY_CLASS_NAME_ENDING = "___proxy";
+
         Dictionary<ConstructorInfo, List<ParameterInfo>> parametersPerConstructor = new Dictionary<ConstructorInfo, List<ParameterInfo>>();
         Dictionary<MethodInfo, List<ParameterInfo>> methodsAndParameters = new Dictionary<MethodInfo, List<ParameterInfo>>();
 
@@ -79,7 +84,7 @@ namespace ClassInTheMiddle.Library
             if (!isInterface && instance != null)
             {
                 realMethod = typeBuilder.DefineMethod(
-                    method.Name + "_real",
+                    method.Name + REAL_METHOD_ENDING,
                     method.Attributes | MethodAttributes.Private,
                     method.ReturnType,
                     methodparameters?.Select(x => x.ParameterType).ToArray());
@@ -124,14 +129,14 @@ namespace ClassInTheMiddle.Library
             if (instanceKeepers.ContainsKey(parameterType))
             {
                 instance = instanceKeepers[parameterType]();
-                fieldBuilder = typeBuilder.DefineField("realInstance", instance.GetType(), FieldAttributes.Private);
+                fieldBuilder = typeBuilder.DefineField(REAL_INSTANCE_FIELD_NAME, instance.GetType(), FieldAttributes.Private);
             }
             return instance;
         }
 
         FieldBuilder createFieldForProxyInvoker(TypeBuilder typeBuilder)
         {
-            return typeBuilder.DefineField("invokes", Invokes.GetType(), FieldAttributes.Private);
+            return typeBuilder.DefineField(INVOKES_INSTANCE_FIELD, Invokes.GetType(), FieldAttributes.Private);
         }
 
         public object createMock(TypeBuilder typeBuilder, object instance, FieldBuilder fieldBuilder, FieldBuilder invokesFieldBuilder, Type parameterType, bool isInterface = false)
@@ -152,7 +157,7 @@ namespace ClassInTheMiddle.Library
                 {
                     if (methodsToIgnore.Any(x => x.Name == method.Name))
                         continue;
-                    var methodDummy = mock.GetType().GetMethod(method.Name + "_real", BindingFlags.Instance | BindingFlags.NonPublic);
+                    var methodDummy = mock.GetType().GetMethod(method.Name + REAL_METHOD_ENDING, BindingFlags.Instance | BindingFlags.NonPublic);
                     MethodChanger.Change(methodDummy, method);
                     MethodChanger.Change(method, mock.GetType().GetMethod(method.Name));
                 }
@@ -169,6 +174,37 @@ namespace ClassInTheMiddle.Library
             field.SetValue(mock, instance);
         }
 
+        public bool TryCreateProxyClass(Type resultType, out object result, Dictionary<Type, Func<object>> instanceKeepers)
+        {
+            bool isInterface = false;
+            TypeBuilder typeBuilder = null;
+            result = null;
+            if (resultType.IsInterface)
+            {
+                isInterface = true;
+                typeBuilder = TypeBuilderFactory.GetTypeBuilder(type.Name + PROXY_CLASS_NAME_ENDING);
+                typeBuilder.AddInterfaceImplementation(resultType);
+            }
+            else if (resultType.IsClass)
+            {
+                typeBuilder = TypeBuilderFactory.GetTypeBuilder(type.Name + PROXY_CLASS_NAME_ENDING, resultType);
+            }
+            else
+            {
+                return false;
+            }
+
+            object instance = createFieldForRealInstance(typeBuilder, instanceKeepers, resultType, out FieldBuilder fieldBuilder);
+            var invokesFieldBuilder = createFieldForProxyInvoker(typeBuilder);
+
+            var mock = createMock(typeBuilder, instance, fieldBuilder, invokesFieldBuilder, resultType, isInterface);
+            List.Add(mock);
+            setInstanceToFiled(REAL_INSTANCE_FIELD_NAME, instance, mock);
+            setInstanceToFiled(INVOKES_INSTANCE_FIELD, Invokes, mock);
+            result = mock;
+            return true;
+        }
+
         public T createSut(ConstructorInfo constructorInfo, Dictionary<Type, Func<object>> instanceKeepers)
         {
             var parameterlist = parametersPerConstructor[constructorInfo];
@@ -176,31 +212,10 @@ namespace ClassInTheMiddle.Library
 
             foreach (var parameter in parameterlist)
             {
-                bool isInterface = false;
-                TypeBuilder typeBuilder;
-                if (parameter.ParameterType.IsInterface)
+                if (TryCreateProxyClass(parameter.ParameterType, out object mock, instanceKeepers))
                 {
-                    isInterface = true;
-                    typeBuilder = TypeBuilderFactory.GetTypeBuilder(type.Name + "_Proxy");
-                    typeBuilder.AddInterfaceImplementation(parameter.ParameterType);
+                    parameters.Add(mock);
                 }
-                else if (parameter.ParameterType.IsClass)
-                {
-                    typeBuilder = TypeBuilderFactory.GetTypeBuilder(type.Name + "_Proxy", parameter.ParameterType);
-                }
-                else
-                {
-                    continue;
-                }
-
-                object instance = createFieldForRealInstance(typeBuilder, instanceKeepers, parameter.ParameterType, out FieldBuilder fieldBuilder);
-                var invokesFieldBuilder = createFieldForProxyInvoker(typeBuilder);
-
-                var mock = createMock(typeBuilder, instance, fieldBuilder, invokesFieldBuilder, parameter.ParameterType, isInterface);
-                List.Add(mock);
-                setInstanceToFiled("realInstance", instance, mock);
-                setInstanceToFiled("invokes", Invokes, mock);
-                parameters.Add(mock);
             }
 
             return (T)Activator.CreateInstance(type, args: parameters.ToArray());
