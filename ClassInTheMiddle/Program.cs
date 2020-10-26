@@ -64,21 +64,23 @@ namespace ClassInTheMiddle
     {
         public static void Main(string[] args)
         {
-            var classAnalyser = new ClassAnalyser<test2>(new Dictionary<Type, Func<object>>
-            {
-                {typeof(test1), () => new test1() }
-            });
-            var sut = classAnalyser.SUT;
-            classAnalyser.Invokes.SetFunction<test1>(x => x.Set(0), x =>
-            {
-                Console.WriteLine("set");
-                return null;
-            });
-            classAnalyser.Invokes.SetFunction<test1>(x => x.Get(), x =>
-            {
-                Console.WriteLine("get");
-                return null;
-            });
+            var classInTheMiddle = new Library.ClassInTheMiddle();
+
+            classInTheMiddle.AddFactory<test1>(() => new test1());
+
+            classInTheMiddle.SetFunction<test1>(x => x.Set(0), x =>
+                {
+                    Console.WriteLine("set");
+                    return null;
+                })
+                .SetFunction<test1>(x => x.Get(), x =>
+                {
+                    Console.WriteLine("get");
+                    return null;
+                });
+            
+            var sut = classInTheMiddle.GetSut<test2>();
+
             sut.Set(15);
             var id = sut.Get();
 

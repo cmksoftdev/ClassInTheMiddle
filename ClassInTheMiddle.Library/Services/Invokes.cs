@@ -1,24 +1,27 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 
 namespace ClassInTheMiddle.Library.Services
 {
-    public class Invokes
+    public class Invokes : IInvokesSetFunktion
     {
-        Dictionary<string, Func<object[], object>> Functions = new Dictionary<string, Func<object[], object>>();
+        ConcurrentDictionary<string, Func<object[], object>> Functions = new ConcurrentDictionary<string, Func<object[], object>>();
 
         public static string GetMethodName(MethodInfo methodInfo) => $"{methodInfo.DeclaringType.FullName}.{methodInfo.Name}";
 
-        public void SetFunction<T>(Expression<Action<T>> expression, Func<object[], object> function)
+        public IInvokesSetFunktion SetFunction<T>(Expression<Action<T>> expression, Func<object[], object> function)
         {
-            Functions.Add(GetMethodName(((MethodCallExpression)expression.Body).Method), function);
+            Functions.TryAdd(GetMethodName(((MethodCallExpression)expression.Body).Method), function);
+            return this;
         }
 
-        public void SetFunction(MethodInfo methodInfo, Func<object[], object> function)
+        public IInvokesSetFunktion SetFunction(MethodInfo methodInfo, Func<object[], object> function)
         {
-            Functions.Add(GetMethodName(methodInfo), function);
+            Functions.TryAdd(GetMethodName(methodInfo), function);
+            return this;
         }
 
         public void InvokeVoid(string name)

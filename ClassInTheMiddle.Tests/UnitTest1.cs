@@ -81,27 +81,27 @@ namespace ClassInTheMiddle.Tests
             int expected = 123;
             bool setProxyMethodWasCalled = false;
             bool getProxyMethodWasCalled = false;
-            var sut = new ClassAnalyser<TestDummy2>(
-                new Dictionary<Type, Func<object>> 
+
+            var classInTheMiddle = new Library.ClassInTheMiddle();
+
+            classInTheMiddle.AddFactory<TestDummy1>(() => new TestDummy1());
+            classInTheMiddle.SetFunction<TestDummy1>(x => x.SetOneParameter(0), x =>
                 {
-                    { typeof(TestDummy1), () => new TestDummy1() }
+                    Assert.AreEqual(expected, (int)x[0]);
+                    setProxyMethodWasCalled = true;
+                    return null;
+                })
+                .SetFunction<TestDummy1>(x => x.Get1(), x =>
+                {
+                    getProxyMethodWasCalled = true;
+                    return null;
                 });
-            sut.Invokes.SetFunction<TestDummy1>(x => x.SetOneParameter(0), x =>
-            {
-                Assert.AreEqual(expected, (int)x[0]);
-                setProxyMethodWasCalled = true;
-                return null;
-            });
-            sut.Invokes.SetFunction<TestDummy1>(x => x.Get1(), x =>
-            {
-                getProxyMethodWasCalled = true;
-                return null;
-            });
-            var testDummy2 = sut.SUT;
+
+            var sut = classInTheMiddle.GetSut<TestDummy2>();
 
             // Act
-            testDummy2.SetOneParameter(expected);
-            var actual = testDummy2.Get1();
+            sut.SetOneParameter(expected);
+            var actual = sut.Get1();
 
             // Assert
             Assert.IsTrue(setProxyMethodWasCalled && getProxyMethodWasCalled);
@@ -117,34 +117,34 @@ namespace ClassInTheMiddle.Tests
             bool setProxyMethodWasCalled = false;
             bool get1ProxyMethodWasCalled = false;
             bool get2ProxyMethodWasCalled = false;
-            var sut = new ClassAnalyser<TestDummy2>(
-                new Dictionary<Type, Func<object>>
+
+            var classInTheMiddle = new Library.ClassInTheMiddle();
+
+            classInTheMiddle.AddFactory<TestDummy1>(() => new TestDummy1());
+            classInTheMiddle.SetFunction<TestDummy1>(x => x.SetTwoParameters(0, 1), x =>
                 {
-                    { typeof(TestDummy1), () => new TestDummy1() }
+                    Assert.AreEqual(expected1, (int)x[0]);
+                    Assert.AreEqual(expected2, (int)x[1]);
+                    setProxyMethodWasCalled = true;
+                    return null;
+                })
+                .SetFunction<TestDummy1>(x => x.Get1(), x =>
+                {
+                    get1ProxyMethodWasCalled = true;
+                    return null;
+                })
+                .SetFunction<TestDummy1>(x => x.Get2(), x =>
+                {
+                    get2ProxyMethodWasCalled = true;
+                    return null;
                 });
-            sut.Invokes.SetFunction<TestDummy1>(x => x.SetTwoParameters(0, 1), x =>
-            {
-                Assert.AreEqual(expected1, (int)x[0]);
-                Assert.AreEqual(expected2, (int)x[1]);
-                setProxyMethodWasCalled = true;
-                return null;
-            });
-            sut.Invokes.SetFunction<TestDummy1>(x => x.Get1(), x =>
-            {
-                get1ProxyMethodWasCalled = true;
-                return null;
-            });
-            sut.Invokes.SetFunction<TestDummy1>(x => x.Get2(), x =>
-            {
-                get2ProxyMethodWasCalled = true;
-                return null;
-            });
-            var testDummy2 = sut.SUT;
+
+            var sut = classInTheMiddle.GetSut<TestDummy2>();
 
             // Act
-            testDummy2.SetTwoParameters(expected1, expected2);
-            var actual1 = testDummy2.Get1();
-            var actual2 = testDummy2.Get2();
+            sut.SetTwoParameters(expected1, expected2);
+            var actual1 = sut.Get1();
+            var actual2 = sut.Get2();
 
             // Assert
             Assert.IsTrue(

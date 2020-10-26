@@ -20,7 +20,7 @@ namespace ClassInTheMiddle.Library
     }
 
 
-    public class ClassAnalyser<T>
+    class ClassAnalyser<T>
     {
         Type type;
 
@@ -32,10 +32,9 @@ namespace ClassInTheMiddle.Library
         Dictionary<ConstructorInfo, List<ParameterInfo>> parametersPerConstructor = new Dictionary<ConstructorInfo, List<ParameterInfo>>();
         Dictionary<MethodInfo, List<ParameterInfo>> methodsAndParameters = new Dictionary<MethodInfo, List<ParameterInfo>>();
 
-        public List<object> List = new List<object>();
-
-        public ClassAnalyser(Dictionary<Type, Func<object>> instanceKeepers)
+        public ClassAnalyser(InstanceCollection instanceKeepers, Invokes invokes = null)
         {
+            Invokes = invokes ?? new Invokes();
             type = typeof(T);
             analyseDependencies();
             analyseMethods();
@@ -43,7 +42,7 @@ namespace ClassInTheMiddle.Library
         }
 
         public T SUT;
-        public Invokes Invokes { get; } = new Invokes();
+        public Invokes Invokes { get; }
 
         void analyseDependencies()
         {
@@ -122,16 +121,15 @@ namespace ClassInTheMiddle.Library
                 typeBuilder.DefineMethodOverride(methodBuilder, method);
         }
 
-        object createFieldForRealInstance(TypeBuilder typeBuilder, Dictionary<Type, Func<object>> instanceKeepers, Type parameterType, out FieldBuilder fieldBuilder)
+        object createFieldForRealInstance(TypeBuilder typeBuilder, InstanceCollection instanceKeepers, Type parameterType, out FieldBuilder fieldBuilder)
         {
-            object instance = null;
             fieldBuilder = null;
-            if (instanceKeepers.ContainsKey(parameterType))
+            if (instanceKeepers.TryGetInstance(parameterType, out object instance))
             {
-                instance = instanceKeepers[parameterType]();
                 fieldBuilder = typeBuilder.DefineField(REAL_INSTANCE_FIELD_NAME, instance.GetType(), FieldAttributes.Private);
+                return instance;
             }
-            return instance;
+            return null;
         }
 
         FieldBuilder createFieldForProxyInvoker(TypeBuilder typeBuilder)
@@ -174,7 +172,7 @@ namespace ClassInTheMiddle.Library
             field.SetValue(mock, instance);
         }
 
-        public bool TryCreateProxyClass(Type resultType, out object result, Dictionary<Type, Func<object>> instanceKeepers)
+        public bool TryCreateProxyClass(Type resultType, out object result, InstanceCollection instanceKeepers)
         {
             bool isInterface = false;
             TypeBuilder typeBuilder = null;
@@ -198,14 +196,13 @@ namespace ClassInTheMiddle.Library
             var invokesFieldBuilder = createFieldForProxyInvoker(typeBuilder);
 
             var mock = createMock(typeBuilder, instance, fieldBuilder, invokesFieldBuilder, resultType, isInterface);
-            List.Add(mock);
             setInstanceToFiled(REAL_INSTANCE_FIELD_NAME, instance, mock);
             setInstanceToFiled(INVOKES_INSTANCE_FIELD, Invokes, mock);
             result = mock;
             return true;
         }
 
-        public T createSut(ConstructorInfo constructorInfo, Dictionary<Type, Func<object>> instanceKeepers)
+        public T createSut(ConstructorInfo constructorInfo, InstanceCollection instanceKeepers)
         {
             var parameterlist = parametersPerConstructor[constructorInfo];
             List<object> parameters = new List<object>();
