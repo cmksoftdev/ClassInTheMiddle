@@ -1,9 +1,13 @@
 # ClassInTheMiddle
 C# Class Proxy to makes it possible to mock dependencies, even if they are no interfaces. See unit tests or example project.
 
-Normal:
-SUT =calls=> Dependency.Method
+### Normal:
+#### SUT 
+1. =calls=> Dependency.Method
 
-Using ClassInTheMiddle:
-SUT =calls=> ProxyClass.Method =calls=> ConfigedFunc with parameters
-                   (optional)  =calls=> Dependency.Method
+### Using ClassInTheMiddle:
+
+#### SUT 
+1. =calls=> ProxyClass.Method 
+2. =calls=> ConfigedFunc with parameters
+3. =calls=> Dependency.Method (optional)
