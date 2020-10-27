@@ -129,6 +129,13 @@ namespace ClassInTheMiddle.Library.Services
             il.Emit(OpCodes.Ret);
         }
 
+        public void CallStaticMethod(MethodInfo methodInfo)
+        {
+            createOpcodeForParameters(methodInfo.GetParameters(), false, false);
+            il.Emit(OpCodes.Call, methodInfo);
+            il.Emit(OpCodes.Ret);
+        }
+
         public void CreateOpcode(FieldInfo invokesFieldInfo, MethodInfo methodInfo, bool isInterface, MethodInfo realMethodInfo = null, FieldInfo fieldInfo = null)
         {
             var parameterCount = methodInfo.GetParameters().Length;

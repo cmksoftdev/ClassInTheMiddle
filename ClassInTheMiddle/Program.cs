@@ -58,6 +58,11 @@ namespace ClassInTheMiddle
         {
             return test.Get2();
         }
+
+        public static int teste(int i, double d)
+        {
+            return 0;
+        }
     }
 
     public class Program
@@ -83,7 +88,9 @@ namespace ClassInTheMiddle
 
             sut.Set(15);
             var id = sut.Get();
-
+            var fake = new StaticMethodFaker();
+            fake.FakeStaticProperty(() => DateTime.Now);
+            fake.FakeStaticMethod((int x, double y) => test2.teste(x, y));
             Console.WriteLine("Hello World! " + id);
         }
     }
