@@ -51,6 +51,7 @@ namespace ClassInTheMiddle.Library.Services
 
                     RuntimeHelpers.PrepareMethod(methodToReplace.MethodHandle);
                     RuntimeHelpers.PrepareMethod(methodToInject.MethodHandle);
+                    Thread.Sleep(100);
 
                     long _inj = (long)methodToInject.MethodHandle.Value.ToPointer() + 1;
                     long _tar = (long)methodToReplace.MethodHandle.Value.ToPointer() + 1;
